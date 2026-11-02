@@ -59,10 +59,10 @@ export function user(value: unknown): TaskData | null {
 }
 
 /**
- * Маппинг общий для карточки и трёх списков; vendor-статус не интерпретирует ядро.
+ * Общие поля карточки и списков сохраняют vendor-статус без интерпретации ядром.
  * Просрочка сравнивает календарные даты UTC: задача на сегодня ещё не просрочена.
  */
-export function task(value: unknown): TaskData {
+function mappedTask(value: unknown) {
   if (!isRecord(value) || !isRecord(value.fields) || typeof value.key !== 'string' || !value.key) {
     throw new TrackerError('tracker_rest_error', 'Jira не вернула поля задачи и ключ', 502);
   }
@@ -97,6 +97,34 @@ export function task(value: unknown): TaskData {
     priority: priority ?? 1,
     parentId: parent ? numericId(parent.id) : null,
     tags: Array.isArray(fields.labels) ? fields.labels.filter((label) => typeof label === 'string') : [],
+  };
+}
+
+/**
+ * Списки доски принимают только строковые подписи исполнителя и проекта либо null.
+ * Остальные общие поля совпадают с карточкой; объекты Jira остаются внутри маппинга.
+ */
+export function task(value: unknown): TaskData {
+  const mapped = mappedTask(value);
+
+  return {
+    ...mapped,
+    responsible: mapped.responsible?.name ?? null,
+    group: mapped.group?.name ?? null,
+  };
+}
+
+/**
+ * Форма карточки использует объект исполнителя со строковым accountId для правки.
+ * Проект передаётся отдельными подписью и числовым id, без объектного поля group.
+ */
+export function detail(value: unknown): TaskData {
+  const { group, ...mapped } = mappedTask(value);
+
+  return {
+    ...mapped,
+    group_name: group?.name ?? null,
+    group_id: group?.id ?? null,
   };
 }
 

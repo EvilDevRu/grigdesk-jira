@@ -15,7 +15,8 @@ test('Карточка: числовой id, key, plain text, срок, авто
     deadline: '2000-01-02T00:00:00.000Z',
     creator: { id: 'creator:9', name: 'Автор' },
     responsible: { id: ACCOUNT, name: 'Исполнитель' },
-    group: { id: 9, name: 'Проект' },
+    group_name: 'Проект',
+    group_id: 9,
     priority: 2,
     status: '10001',
     statusKind: 'in_progress',
@@ -25,6 +26,7 @@ test('Карточка: числовой id, key, plain text, срок, авто
     parentId: 12,
     tags: ['метка', 'label'],
   });
+  assert.equal(Object.hasOwn(detail, 'group'), false);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].path, '/rest/api/2/issue/42');
   assert.equal(await driver.sourceUrl('42'), 'https://jira.fixture/browse/PROJ-42');
@@ -78,6 +80,8 @@ test('PageData читает все комментарии и показывае�
     statusText: 'Готово',
   }]);
   assert.deepEqual(page.attachments, []);
+  assert.equal(Object.hasOwn(page, 'responsible'), false);
+  assert.equal(Object.hasOwn(page, 'group'), false);
   assert.deepEqual(calls.filter((call) => call.path.endsWith('/comment'))
     .map((call) => call.query.get('startAt')), ['0', '1']);
 });
@@ -91,6 +95,7 @@ test('Пустое обсуждение и отсутствующие необя
     }) : Response.json(issue('42', {
         assignee: null,
         creator: null,
+        project: null,
         parent: null,
         labels: [],
         subtasks: [],
@@ -101,6 +106,9 @@ test('Пустое обсуждение и отсутствующие необя
 
   assert.equal(detail.responsible, null);
   assert.equal(detail.creator, null);
+  assert.equal(detail.group_name, null);
+  assert.equal(detail.group_id, null);
+  assert.equal(Object.hasOwn(detail, 'group'), false);
   assert.equal(detail.parentId, null);
   assert.equal(detail.deadline, null);
   assert.deepEqual(page, {

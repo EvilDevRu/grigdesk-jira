@@ -1,4 +1,4 @@
-# Jira Cloud 0.1.0: устройство и ограничения
+# Jira Cloud 0.1.1: устройство и ограничения
 
 Драйвер контракта 1 использует только Node builtins и собственные модули.
 `types/contract.ts` и `types/capabilities.ts` — дословный снимок пакета `grigdesk-b24`.
@@ -49,8 +49,11 @@ REST-схемы: [поиск Jira Cloud][search], [задачи и перехо�
 
 Канонический id задачи — положительное безопасное целое Jira, а key хранится рядом.
 Проекты также имеют числовые id, пользователи — строковые accountId.
-Данные исполнителя и автора: `{ id: accountId, name: displayName }` либо null.
-Списки сохраняют объекты responsible и group. `sourceUrl` читает актуальный key и строит
+В списках `responsible` — строка displayName или null, `group` — строка имени проекта или null.
+В детали `responsible` — `{ id: accountId, name: displayName }` либо null;
+проект передаётся как `group_name` (строка или null) и `group_id` (число или null), без поля `group`.
+Автор в обеих проекциях — `{ id: accountId, name: displayName }` либо null.
+`sourceUrl` читает актуальный key и строит
 `baseUrl + '/browse/' + key`.
 
 Описание и комментарии читаются и записываются через v2 как обычный текст.
@@ -100,7 +103,11 @@ wiki-разметка и ADF не создаются. Ampersand экраниру
 другим, и не обещает отдельной стадии приёмки. Роли accomplice/auditor отсутствуют, widgets пуст.
 
 `taskDetail` содержит id, key, title, description, deadline, creator, responsible, priority,
-статусные поля, parentId, tags, а также group и overdue для общего маппинга списка.
+статусные поля, parentId, tags, overdue и поля проекта group_name/group_id.
+Как и у стокового Б24, списочная проекция передаёт строковые подписи responsible/group,
+а детальная сохраняет объект исполнителя для формы правки и не содержит group.
+Разделение маппинга и регрессия снимка доски: [проекции задач](task-projections.md).
+
 `taskPageData` содержит comments, attachments: [], tags, subtasks.
 Подзадача: `{ id, title: summary, statusText: status.name }`.
 Комментарий: id, authorId, author, time, text, isSystem: false, unread: false, attachments: [].

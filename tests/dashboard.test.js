@@ -1,8 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { isRecord } from '../src/objects.ts';
 import { CREATED_JQL, REVIEW_JQL, TASKS_JQL } from '../src/search.ts';
 import { fixture, issue } from './fixtures/jira.js';
+
+/**
+ * Повторяет проверку полей isBoardTask из web/src/shared/boardContracts.ts без импорта ядра.
+ * Объекты исполнителя и проекта должны отклоняться даже при корректных остальных полях.
+ */
+function isBoardTask(value) {
+  if (!isRecord(value) || !['string', 'number'].includes(typeof value.id)) {
+    return false;
+  }
+
+  const textFields = [
+    'title', 'group', 'responsible', 'statusKind', 'statusLabel', 'deadline',
+  ];
+  const textValid = textFields.every((key) => value[key] == null || typeof value[key] === 'string');
+  const numbersValid = ['timerElapsed'].every((key) => value[key] == null || typeof value[key] === 'number');
+  const flagsValid = ['timerRunning', 'overdue']
+    .every((key) => value[key] == null || typeof value[key] === 'boolean');
+  const timerStartValid = value.timerStartedAt == null || typeof value.timerStartedAt === 'string'
+    || (typeof value.timerStartedAt === 'number' && Number.isFinite(value.timerStartedAt));
+
+  return textValid && numbersValid && flagsValid && timerStartValid && (value.responsibleId == null
+    || typeof value.responsibleId === 'string' || typeof value.responsibleId === 'number');
+}
 
 for (const fallback of [null, 404, 410]) {
   test(`Три списка с пагинацией и всеми статусами, fallback=${fallback}`, async () => {
@@ -45,8 +69,15 @@ for (const fallback of [null, 404, 410]) {
     assert.equal(dashboard.tasks[0].overdue, true);
     assert.equal(dashboard.tasks[1].overdue, false);
     assert.equal(dashboard.tasks[1].statusKind, 'done');
-    assert.deepEqual(dashboard.tasks[0].responsible, { id: '712020:fixture-account', name: 'Исполнитель' });
-    assert.deepEqual(dashboard.tasks[0].group, { id: 9, name: 'Проект' });
+
+    for (const list of [dashboard.tasks, dashboard.toReview, dashboard.created]) {
+      for (const row of list) {
+        assert.equal(row.responsible, 'Исполнитель');
+        assert.equal(row.group, 'Проект');
+        assert.ok(isBoardTask(row));
+      }
+    }
+
     assert.deepEqual(dashboard.widgets, []);
     assert.equal(Object.hasOwn(dashboard, 'accomplice'), false);
     assert.equal(Object.hasOwn(dashboard, 'auditor'), false);
@@ -58,9 +89,51 @@ test('listTasks отправляет только фильтр исполнит�
   const { driver, calls } = fixture({ respond: () => Response.json({ issues: [issue('42', {
     status: { name: 'Готово', statusCategory: { key: 'done' } },
   })] }) });
+  const [row] = await driver.listTasks();
 
-  assert.equal((await driver.listTasks())[0].statusKind, 'done');
+  assert.equal(row.statusKind, 'done');
+  assert.equal(row.responsible, 'Исполнитель');
+  assert.equal(row.group, 'Проект');
+  assert.ok(isBoardTask(row));
   assert.deepEqual(calls.map((call) => call.body.jql), [TASKS_JQL]);
+});
+
+for (const fallback of [null, 404, 410]) {
+  test(`Отсутствующие исполнитель и проект остаются null во всех списках, fallback=${fallback}`, async () => {
+    const { driver } = fixture({ respond: ({ path }) => {
+      if (path === '/rest/api/3/search/jql' && fallback) {
+        return new Response(null, { status: fallback });
+      }
+
+      const issues = [issue('42', { assignee: null, project: null })];
+
+      return Response.json(fallback ? {
+        issues,
+        startAt: 0,
+        total: 1,
+      } : { issues });
+    } });
+    const dashboard = await driver.getDashboard();
+    const tasks = await driver.listTasks();
+
+    for (const list of [dashboard.tasks, dashboard.toReview, dashboard.created, tasks]) {
+      assert.equal(list.length, 1);
+      assert.equal(list[0].responsible, null);
+      assert.equal(list[0].group, null);
+      assert.ok(isBoardTask(list[0]));
+    }
+  });
+}
+
+test('Объект в строковом поле списка нарушает контракт снимка доски', async () => {
+  const { driver } = fixture();
+  const [row] = await driver.listTasks();
+
+  assert.ok(isBoardTask(row));
+
+  for (const field of ['group', 'responsible']) {
+    assert.equal(isBoardTask({ ...row, [field]: { id: '9', name: 'Подпись' } }), false);
+  }
 });
 
 test('Срок сегодня не просрочен; неизвестная категория даёт other', async () => {

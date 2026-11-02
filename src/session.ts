@@ -1,7 +1,7 @@
 import { TrackerError } from '../types/contract.ts';
 import type { TaskData, TrackerIdentity } from '../types/contract.ts';
 import type { Credentials } from './auth.ts';
-import { comment, numericId, priorityValue, subtasks, task, user } from './mapping.ts';
+import { comment, detail, numericId, priorityValue, subtasks, task, user } from './mapping.ts';
 import { isRecord } from './objects.ts';
 import { offsetPages } from './pagination.ts';
 import { CREATED_JQL, ISSUE_FIELDS, REVIEW_JQL, search, TASKS_JQL } from './search.ts';
@@ -74,7 +74,7 @@ export class JiraSession {
 
   /**
    * «На контроле» означает открытые задачи, поставленные другим исполнителям.
-   * Роли соисполнителя и наблюдателя отсутствуют, виджеты в версии 0.1.0 отключены.
+   * Роли соисполнителя и наблюдателя отсутствуют, виджеты отключены.
    */
   async getDashboard() {
     const tasks = await this.listTasks();
@@ -105,10 +105,10 @@ export class JiraSession {
 
   /**
    * Детали не зависят от доступности обсуждения, комментарии запрашиваются отдельно.
-   * Общий маппинг сохраняет числовой id рядом с ключом и строковую статусную подпись.
+   * Проекция карточки сохраняет объект исполнителя и отдельные group_name/group_id.
    */
   async taskDetail(id: string): Promise<TaskData> {
-    return task(await this.issue(id));
+    return detail(await this.issue(id));
   }
 
   /**
@@ -127,7 +127,7 @@ export class JiraSession {
    */
   async taskPageData(id: string): Promise<TaskData> {
     const issue = await this.issue(id);
-    const detail = task(issue);
+    const mapped = task(issue);
     const rows = await offsetPages((startAt) => this.rest(
       `/rest/api/2/issue/${numericId(id)}/comment?startAt=${startAt}&maxResults=100`,
     ), 'comments');
@@ -136,7 +136,7 @@ export class JiraSession {
     return {
       comments: [...new Map(comments.map((row) => [row.id, row])).values()],
       attachments: [],
-      tags: detail.tags,
+      tags: mapped.tags,
       subtasks: subtasks(issue.fields as TaskData),
     };
   }

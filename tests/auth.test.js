@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { ACCOUNT, EMAIL, fixture, TOKEN } from './fixtures/jira.js';
 
-test('Манифест, локальный контракт и возможности версии 0.1.0', async () => {
+test('Манифест, локальный контракт и возможности версии 0.1.1', async () => {
   const { driver } = fixture();
   const manifest = JSON.parse(await readFile(new URL('../driver.json', import.meta.url), 'utf8'));
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
@@ -13,7 +13,7 @@ test('Манифест, локальный контракт и возможно�
   assert.equal(manifest.id, driver.id);
   assert.equal(manifest.name, 'Jira Cloud');
   assert.equal(manifest.contract, 1);
-  assert.equal(manifest.version, '0.1.0');
+  assert.equal(manifest.version, '0.1.1');
   assert.equal(pkg.version, manifest.version);
   assert.equal(manifest.settings.email.label.key, 'core.trackerEmail');
   assert.equal(manifest.settings.apiToken.secret, true);
