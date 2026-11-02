@@ -1,0 +1,24 @@
+{
+  "id": "grigdesk-jira",
+  "name": "Jira Cloud",
+  "version": "0.1.0",
+  "contract": 1,
+  "settings": {
+    "baseUrl": {
+      "type": "string",
+      "required": true,
+      "label": { "key": "core.trackerPortal" }
+    },
+    "email": {
+      "type": "string",
+      "required": true,
+      "label": { "key": "core.trackerEmail" }
+    },
+    "apiToken": {
+      "type": "string",
+      "secret": true,
+      "required": true,
+      "label": { "key": "core.trackerAccessToken" }
+    }
+  }
+}
